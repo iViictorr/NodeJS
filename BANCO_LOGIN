@@ -1,0 +1,171 @@
+const chalk = require('chalk')
+const inquirer = require('inquirer')
+const fs = require('fs')
+
+home()
+
+function home(){
+    inquirer.prompt([
+        {
+            type: 'list',
+            name: 'action',
+            message: 'Selecione uma das opções abaixo',
+            choices: ['Fazer Login', 'Abrir uma Conta','Sair']
+        },
+    ]).then((answer)=>{
+        const actionSelecionado = answer['action']
+        switch(actionSelecionado){
+            case 'Fazer Login':
+                login()
+                break
+            case 'Abrir uma Conta':
+                cadastro()
+                 break
+            case 'Sair':
+                console.log(chalk.bgBlue.black('Obrigado por usar nosso Banco, volte sempre!'))
+                process.exit()
+                break
+            default: console.log(`Opção selecionada é invalida!!`);
+        }
+    }).catch((err)=>console.log(err))
+}
+function login(){
+    inquirer.prompt([
+        {
+            name: 'login',
+            message: 'Digite seu Login',
+        },
+        {
+            name: 'senha',
+            message: 'Digite sua Senha',
+        },
+    ]).then((answer)=>{
+        const loginUsuario = answer['login']
+        const senhaUsuario = answer['senha']
+
+        if(!fs.existsSync(`logins/${loginUsuario}.json`)){
+            console.log(chalk.bgRed.black('Esta conta não existe, tente novamente!'))
+            return login()
+        }
+
+        const loginUsuarioData = verificarConta(answer['login'])
+        const senhaUsuarioData = loginUsuarioData.senha
+
+        if(senhaUsuarioData != senhaUsuario){
+            console.log(chalk.bgRed.black('Senha invalida tente novamente!!'))
+            return login()
+        }
+            operacoes(loginUsuario)
+    }).catch((err)=>console.log(err))
+}
+function cadastro(){
+    inquirer.prompt([
+        {
+            name: 'login',
+            message: 'Digite o nome do seu Usuario',
+        },
+        {
+            name: 'senha',
+            message: 'Digite a sua senha',
+        },
+    ]).then((answer)=>{
+        const loginUsuario = answer['login']
+        const senha = parseInt(answer['senha'])
+        
+        console.info(login)
+        if(!fs.existsSync('logins')){
+            fs.mkdirSync('logins')
+        }
+
+        if(fs.existsSync(`logins/${loginUsuario}.json`)){
+            console.log(chalk.bgRed.black('Já existe uma conta com esse nome'))
+            return cadastro()
+        }
+
+        fs.writeFileSync(`logins/${loginUsuario}.json`,`{"login":"${loginUsuario}","senha":${senha},"saldo":0}`, function(err){console.log(err)})
+        console.log(chalk.green('Parabens a sua conta foi criada'))
+        login()
+    }).catch((err)=>console.log(err))
+}
+function operacoes(loginUsuario){
+    inquirer.prompt([
+        {
+            type:'list',
+            name:'action',
+            message: `Bem vindo ${loginUsuario} o que gostaria de fazer?`,
+            choices:['Consultar Saldo','Depositar','Sacar','Logout'],
+        },
+    ]).then((answer) => {
+        const action = answer['action']
+        switch(action){
+            case 'Consultar Saldo':
+                consultaSaldo(loginUsuario)
+            break
+            case 'Depositar':
+                depositarDinheiro(loginUsuario)
+            break
+            case 'Sacar':
+                sacarDinheiro(loginUsuario)
+            break
+            case 'Logout':
+                console.log(chalk.bgBlue.black('Obrigado por usar nosso Banco, volte sempre!'))
+                process.exit()
+            break
+            default: console.log(`Opção selecionada é invalida!!`);
+        }
+    }).catch((err) => console.log(err))
+}
+function verificarConta(login){
+    const loginJSON = fs.readFileSync(`logins/${login}.json`,{
+        encoding: 'utf8',
+        flag: 'r'
+    })
+    return JSON.parse(loginJSON)
+}
+function consultaSaldo(loginUsuario){
+    const loginUsuarioData = verificarConta(loginUsuario)
+    console.log(chalk.bgBlue.black(`Olá o saldo da sua conta é de R$: ${loginUsuarioData.saldo}`))
+    operacoes(loginUsuario)
+}
+function depositarDinheiro(loginUsuario){
+    inquirer.prompt([
+        {
+            name: 'quantidade',
+            message: 'Quanto você deseja depositar?',
+        },
+    ]).then((answer)=>{
+        const quantidade = answer['quantidade']
+        if(!quantidade || quantidade <= 0){
+            console.log(chalk.bgRed.black('Ocorreu um erro, tente novamente!!'))
+            return depositarDinheiro(loginUsuario)
+        }
+        const loginUsuarioData = verificarConta(loginUsuario)
+        loginUsuarioData.saldo = parseFloat(loginUsuarioData.saldo) + parseFloat(quantidade)
+        fs.writeFileSync(`logins/${loginUsuario}.json`,JSON.stringify(loginUsuarioData),function(err){console.log(err)})
+        console.log(chalk.bgGreen.black(`Deposito de ${quantidade} adicionado com sucesso!!`))
+        operacoes(loginUsuario)
+    }).catch((err)=>console.log(err))
+}
+function sacarDinheiro(loginUsuario){
+    inquirer.prompt([
+        {
+            name: 'quantidade',
+            message: 'Quanto você deseja sacar?',
+        },
+    ]).then((answer)=>{
+        const quantidade = answer['quantidade']
+        if(!quantidade || quantidade <= 0){
+            console.log(chalk.bgRed.black('Ocorreu um erro, tente novamente!!'))
+            return sacarDinheiro(loginUsuario)
+        }
+        const loginUsuarioData = verificarConta(loginUsuario)
+        if(loginUsuarioData.saldo < quantidade){
+            console.log(chalk.bgRed.black(`Saldo insuficiente para saque, você tem disponivel R$: ${loginUsuarioData.saldo}`))
+            return sacarDinheiro(loginUsuario)
+        }
+        loginUsuarioData.saldo = parseFloat(loginUsuarioData.saldo) - parseFloat(quantidade)
+        fs.writeFileSync(`logins/${loginUsuario}.json`, JSON.stringify(loginUsuarioData),function(err){console.log(err)})
+        console.log(chalk.bgGreen.black(`Saque de ${quantidade} efetuado com sucesso, seu saldo agora é ${loginUsuarioData.saldo}`))
+        operacoes(loginUsuario)
+    }).catch((err)=>console.log(err))
+}
